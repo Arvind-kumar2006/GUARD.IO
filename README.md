@@ -1,50 +1,60 @@
-# Welcome to your Expo app 👋
+# GUARD.IO
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+GUARD.IO is a safety companion built with Expo and React Native. It helps people stay connected with their trusted contacts by offering guided onboarding, location sharing, and emergency actions in one interface.
 
-## Get started
+## Features
+- **Firebase authentication**: Email/password login and signup with validation.
+- **Protected navigation**: Authenticated and unauthenticated stacks managed through React Navigation.
+- **Safety hub**: Home screen with quick actions for live sharing, SOS, and contact management.
+- **Permission onboarding**: Guided flow for location and notification access.
+- **Reusable UI kit**: Gradient layouts, buttons, headers, and form inputs tailored for a calm safety-focused brand.
 
-1. Install dependencies
+## Tech stack
+- Expo SDK 54 / React Native 0.81
+- React Navigation (stack navigator)
+- Firebase Authentication
+- Expo LinearGradient, Haptics, Icons
 
+## Project structure
+```
+App.jsx                  ← entry point (registerRootComponent)
+contexts/AuthContext.jsx ← auth state + Firebase listeners
+navigation/              ← AppNavigator (private) & AuthNavigator (public)
+screens/                 ← Login, Signup, Home, Permission
+components/              ← Header, CustomButton, InputField, etc.
+config/firebase.js       ← Firebase initialization
+```
+
+## Getting started
+1. Install dependencies:
    ```bash
    npm install
    ```
-
-2. Start the app
-
+2. Start the Expo dev server:
    ```bash
+   npm start
+   # or
    npx expo start
    ```
+3. Choose where to run the app:
+   - iOS Simulator
+   - Android Emulator
+   - Physical device via Expo Go
 
-In the output, you'll find options to open the app in a
+## Environment setup
+- Copy your Firebase credentials into `config/firebase.js` (current file already points to the GUARD.IO project).
+- Ensure you have Expo CLI prerequisites installed (Xcode for iOS simulator, Android Studio for emulator).
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
+## Available scripts
 ```bash
-npm run reset-project
+npm start      # Expo start (interactive)
+npm run ios    # Expo start --ios
+npm run android# Expo start --android
+npm run web    # Expo start --web
+npm run lint   # Expo lint
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Next steps
+- Wire up real permission requests (expo-location, expo-notifications).
+- Implement SOS actions and contact management.
+- Add analytics/monitoring for critical events.
