@@ -1,12 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import React from 'react';
 import {
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Header from '../components/Header';
@@ -22,10 +21,8 @@ const HomeScreen = ({ navigation }) => {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <Header 
-            logo 
-            rightIcon="menu"
-            onRightIconPress={() => console.log('Menu pressed')}
+          <Header
+            logo
           />
 
           <View style={styles.content}>
@@ -40,7 +37,7 @@ const HomeScreen = ({ navigation }) => {
               {/* Start Sharing Button */}
               <TouchableOpacity
                 style={styles.actionCard}
-                onPress={() => navigation.navigate('Permission')}
+                onPress={() => navigation.navigate('Tracking')}
                 activeOpacity={0.8}
               >
                 <View style={[styles.iconContainer, styles.sharingIconContainer]}>
@@ -59,7 +56,7 @@ const HomeScreen = ({ navigation }) => {
               {/* SOS Button */}
               <TouchableOpacity
                 style={[styles.actionCard, styles.sosCard]}
-                onPress={() => console.log('SOS pressed')}
+                onPress={() => navigation.navigate('SOS')}
                 activeOpacity={0.8}
               >
                 <View style={[styles.iconContainer, styles.sosIconContainer]}>
@@ -80,7 +77,7 @@ const HomeScreen = ({ navigation }) => {
               {/* Contacts Button */}
               <TouchableOpacity
                 style={[styles.actionCard, styles.contactsCard]}
-                onPress={() => console.log('Contacts pressed')}
+                onPress={() => navigation.navigate('Contacts')}
                 activeOpacity={0.8}
               >
                 <View style={[styles.iconContainer, styles.contactsIconContainer]}>

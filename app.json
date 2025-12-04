@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "GUARD.IO",
-    "slug": "GUARD.IO",
+    "slug": "guardio",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -12,14 +12,39 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.guardio.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyB-S0M35sP22Qe4IdklogjFUjMiTR7PIao"
+        }
+      },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION"
+      ],
+      "intentFilters": [
+        {
+          "action": "SEND",
+          "data": [
+            {
+              "mimeType": "text/plain"
+            }
+          ],
+          "category": [
+            "DEFAULT"
+          ]
+        }
+      ]
     },
     "web": {
       "output": "static",
@@ -42,6 +67,12 @@
     ],
     "experiments": {
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "f9556e84-f79d-4e23-9172-770aba8fcd10"
+      }
     }
   }
 }
