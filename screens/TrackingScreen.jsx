@@ -40,14 +40,13 @@ const TrackingScreen = () => {
             })();
 
             return () => {
-                  stopSharing(); // Cleanup on unmount
+                  stopSharing();
             };
       }, []);
 
       const startSharing = async () => {
             try {
                   console.log("Starting live tracking (Firestore)...");
-                  // Simple UUID generator since crypto.randomUUID is not available
                   const generateUUID = () => {
                         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
                               var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
@@ -60,7 +59,6 @@ const TrackingScreen = () => {
                   setIsSharing(true);
                   console.log(`Generated Session ID: ${newSessionId}`);
 
-                  // Seed Firestore document immediately so receiver link has something to read
                   await setDoc(doc(db, "liveLocations", newSessionId), {
                         latitude: null,
                         longitude: null,
@@ -71,11 +69,10 @@ const TrackingScreen = () => {
                         status: "waiting"
                   });
 
-                  // Start watching location
                   locationSubscription.current = await Location.watchPositionAsync(
                         {
                               accuracy: Location.Accuracy.High,
-                              distanceInterval: 10, // Update every 10 meters
+                              distanceInterval: 10,
                         },
                         async (newLocation) => {
                               try {
@@ -86,7 +83,6 @@ const TrackingScreen = () => {
 
                                     console.log(`Location update sent: ${latitude}, ${longitude}`);
 
-                                    // Update Firestore - Live Location
                                     await setDoc(doc(db, "liveLocations", newSessionId), {
                                           latitude,
                                           longitude,
@@ -99,14 +95,12 @@ const TrackingScreen = () => {
 
                                     setLastSentTime(new Date().toLocaleTimeString());
 
-                                    // Push to History (Subcollection)
                                     await setDoc(doc(db, `liveLocations/${newSessionId}/history`, `${timestamp}`), {
                                           latitude,
                                           longitude,
                                           timestamp
                                     });
 
-                                    // Animate map to new location
                                     if (mapRef.current) {
                                           mapRef.current.animateCamera({
                                                 center: {
@@ -122,8 +116,6 @@ const TrackingScreen = () => {
                         }
                   );
 
-                  // Share the link
-                  // NOTE: Replace 'guardio-f6f26.web.app' with your actual Firebase Hosting URL if different
                   const shareUrl = `https://guardio-f6f26.web.app/?sessionId=${newSessionId}`;
                   console.log(`Share URL: ${shareUrl}`);
 
@@ -147,8 +139,7 @@ const TrackingScreen = () => {
 
             if (sessionId) {
                   try {
-                        // Save to History before deleting
-                        const user = auth.currentUser; // Ensure auth is imported from '../config/firebase'
+                        const user = auth.currentUser;
                         if (user) {
                               const historyRef = doc(db, 'users', user.uid, 'history', sessionId);
                               await setDoc(historyRef, {
@@ -160,7 +151,6 @@ const TrackingScreen = () => {
                               });
                         }
 
-                        // Mark as inactive or delete
                         console.log(`Removing session: ${sessionId}`);
                         await deleteDoc(doc(db, "liveLocations", sessionId));
                   } catch (error) {
@@ -183,7 +173,6 @@ const TrackingScreen = () => {
 
       return (
             <View style={styles.container}>
-                  {/* Map Background */}
                   <MapView
                         ref={mapRef}
                         style={styles.map}
@@ -198,7 +187,6 @@ const TrackingScreen = () => {
                         }}
                   />
 
-                  {/* Overlay UI */}
                   <SafeAreaView style={styles.overlay} edges={['top']}>
                         <View style={styles.headerContainer}>
                               <View>
@@ -216,7 +204,6 @@ const TrackingScreen = () => {
                         </View>
 
                         <View style={styles.bottomContainer}>
-                              {/* Action Buttons */}
                               <View style={styles.buttonsContainer}>
                                     <TouchableOpacity
                                           style={[styles.startButton, isSharing && styles.stopButton]}

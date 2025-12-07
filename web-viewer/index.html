@@ -1,134 +1,54 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GUARD.IO Live Tracking</title>
-
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="style.css?v=1.5.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
-    <!-- Waiting State -->
-    <div id="waiting-card">
-        <div class="spinner"></div>
-        <div class="waiting-text">Waiting for sender to share location…</div>
-    </div>
-
-    <!-- Error State -->
-    <div id="error-card" style="display: none;">
-        <div class="error-icon">⚠️</div>
-        <div class="error-text">Invalid Tracking Link</div>
-    </div>
-
-    <!-- Tracking Ended State -->
-    <div id="ended-card" style="display: none;">
-        <div class="ended-icon">🛑</div>
-        <div class="ended-text">Tracking Ended</div>
-        <div class="ended-subtext">The sender stopped sharing location.</div>
+    <!-- UI States -->
+    <div id="status-card" class="card">
+        <div id="spinner" class="spinner"></div>
+        <div id="status-icon" class="icon" style="display:none;"></div>
+        <div id="status-text" class="text">Waiting for location...</div>
+        <div id="status-subtext" class="subtext" style="display:none;"></div>
     </div>
 
     <!-- Live Badge -->
-    <div id="live-badge" style="display: none;">
+    <div id="live-badge" class="badge" style="display: none;">
         <div class="live-dot"></div>
-        <span>Live Tracking</span>
+        <span>Live</span>
     </div>
 
-    <!-- Route Card -->
-    <div id="route-card" style="display:none;">
-        <div class="route-header">
-            <div>
-                <div class="route-title">Route to sender</div>
-                <div id="route-status" class="route-status">Waiting for your location…</div>
-            </div>
-            <button id="request-location" class="ghost-button">Share location</button>
+    <!-- Route Info -->
+    <div id="route-panel" class="panel" style="display:none;">
+        <div class="panel-header">
+            <h3>Route to sender</h3>
+            <button id="btn-share-loc" class="btn-ghost">Share my location</button>
         </div>
-        <div class="route-metrics">
+        <div class="metrics">
             <div class="metric">
-                <span class="metric-label">Distance</span>
-                <span id="route-distance" class="metric-value">--</span>
+                <label>Distance</label>
+                <span id="metric-dist">--</span>
             </div>
             <div class="metric">
-                <span class="metric-label">ETA</span>
-                <span id="route-duration" class="metric-value">--</span>
+                <label>ETA</label>
+                <span id="metric-time">--</span>
             </div>
         </div>
-        <button id="open-google-nav" class="primary-button" disabled>Open in Google Maps</button>
+        <button id="btn-google-maps" class="btn-primary" disabled>Open in Google Maps</button>
     </div>
 
-    <!-- Map -->
+    <!-- Map Container -->
     <div id="map"></div>
 
-    <!-- Bottom Info -->
-    <div id="bottom-info" style="display: none;">
-        <span id="last-updated">Last updated: Just now</span>
-    </div>
-
-    <!-- Debug Logs -->
-    <div id="debug-logs"
-        style="position:fixed; bottom:0; left:0; width:100%; height:150px; background:rgba(0,0,0,0.8); color:#0f0; font-family:monospace; font-size:10px; overflow-y:scroll; z-index:9999; padding:5px; pointer-events:none; display: block;">
-        <div>Initializing...</div>
-    </div>
-
-    <script>
-        window.onerror = function (msg, url, line, col, error) {
-            var debugEl = document.getElementById('debug-logs');
-            if (debugEl) {
-                var div = document.createElement('div');
-                div.style.color = '#ff0000';
-                div.textContent = `[Global Error] ${msg} at ${line}:${col}`;
-                debugEl.appendChild(div);
-            }
-        };
-        window.addEventListener('unhandledrejection', function (event) {
-            var debugEl = document.getElementById('debug-logs');
-            if (debugEl) {
-                var div = document.createElement('div');
-                div.style.color = '#ff0000';
-                div.textContent = `[Unhandled Promise] ${event.reason}`;
-                debugEl.appendChild(div);
-            }
-        });
-    </script>
-
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-
-    <!-- Firebase App (Compat) - Load synchronously to ensure availability -->
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-
-    <!-- Fallback if gstatic is blocked -->
-    <script>
-        if (typeof firebase === 'undefined') {
-            console.log('Primary Firebase CDN blocked, trying fallback...');
-            var script1 = document.createElement('script');
-            script1.src = 'https://unpkg.com/firebase@10.7.1/compat/app';
-            script1.onload = function () {
-                var script2 = document.createElement('script');
-                script2.src = 'https://unpkg.com/firebase@10.7.1/compat/firestore';
-                script2.onload = function () {
-                    window.firebaseReady = true;
-                    if (window.initTrackingApp) window.initTrackingApp();
-                };
-                document.head.appendChild(script2);
-            };
-            document.head.appendChild(script1);
-        } else {
-            window.firebaseReady = true;
-        }
-    </script>
-
-    <!-- Custom JS - Will wait for Firebase -->
-    <script src="script.js?v=1.5.0"></script>
+    <script src="script.js"></script>
 </body>
-
 </html>

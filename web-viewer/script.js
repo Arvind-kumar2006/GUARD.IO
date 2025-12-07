@@ -1,471 +1,201 @@
-// Version 1.1.0 - Debugging Fix
-const firebaseConfig = {
-      apiKey: "AIzaSyBBJUuBH5aCmHTVWemGBDEtzP-GUDt4fA4",
-      authDomain: "guardio-f6f26.firebaseapp.com",
-      projectId: "guardio-f6f26",
-      storageBucket: "guardio-f6f26.firebasestorage.app",
-      messagingSenderId: "905975977884",
-      appId: "1:905975977884:web:2ec3de1c754cf74f035a59"
+// GUARD.IO Web Viewer - Simplified
+
+const CONFIG = {
+      firebase: {
+            apiKey: "AIzaSyBBJUuBH5aCmHTVWemGBDEtzP-GUDt4fA4",
+            authDomain: "guardio-f6f26.firebaseapp.com",
+            projectId: "guardio-f6f26",
+      },
+      map: {
+            tileLayer: 'http://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+            routeColor: '#4285F4',
+            pathColor: '#007AFF'
+      }
 };
 
-// Debug Logger
-const debugEl = document.getElementById('debug-logs');
-function log(msg) {
-      console.log(msg);
-      if (debugEl) {
-            const div = document.createElement('div');
-            div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-            debugEl.appendChild(div);
-            debugEl.scrollTop = debugEl.scrollHeight;
+// Application State
+const state = {
+      map: null,
+      markers: { sender: null, viewer: null },
+      lines: { path: null, route: null },
+      data: { history: [], lastLoc: null, viewerLoc: null },
+      elements: {}
+};
+
+// -- Entry Point --
+window.onload = () => {
+      cacheDomElements();
+      if (!setupFirebase()) return renderError("Service Unavailable");
+
+      const sessionId = new URLSearchParams(window.location.search).get('sessionId');
+      if (!sessionId) return renderError("No Session ID Found");
+
+      initMap();
+      startTracking(sessionId);
+      setupInteraction();
+};
+
+// -- Setup & Init --
+function cacheDomElements() {
+      const ids = ['status-card', 'spinner', 'status-icon', 'status-text', 'status-subtext', 'live-badge', 'route-panel', 'btn-share-loc', 'btn-google-maps', 'metric-dist', 'metric-time'];
+      ids.forEach(id => state.elements[id] = document.getElementById(id));
+}
+
+function setupFirebase() {
+      if (typeof firebase === 'undefined') return false;
+      if (!firebase.apps.length) firebase.initializeApp(CONFIG.firebase);
+      return true;
+}
+
+function initMap() {
+      state.map = L.map('map', { zoomControl: false }).setView([20.5937, 78.9629], 5);
+      L.tileLayer(CONFIG.map.tileLayer, { subdomains: CONFIG.map.subdomains, maxZoom: 20 }).addTo(state.map);
+      state.lines.path = L.polyline([], { color: CONFIG.map.pathColor, weight: 4 }).addTo(state.map);
+}
+
+// -- Core Logic --
+function startTracking(sessionId) {
+      const db = firebase.firestore();
+      db.collection("liveLocations").doc(sessionId).onSnapshot(
+            doc => handleData(doc),
+            err => renderError("Connection Lost")
+      );
+}
+
+function handleData(doc) {
+      if (!doc.exists) return renderError("Invalid Session Link");
+
+      const data = doc.data();
+      if (data.isActive === false) return renderEnded();
+
+      const { latitude, longitude } = data;
+      if (latitude && longitude) {
+            updateSenderLocation(latitude, longitude);
+            renderActive();
       }
 }
 
-log("Starting App Version 1.1.0");
-log("Waiting for Firebase scripts to load...");
+function updateSenderLocation(lat, lng) {
+      const latLng = [lat, lng];
+      state.data.lastLoc = latLng;
+      state.data.history.push(latLng);
 
-// Expose initialization function so index.html can call it when Firebase loads
-window.initTrackingApp = function () {
-      if (typeof firebase === 'undefined' || !firebase.app) {
-            log("Firebase still not available, waiting...");
-            setTimeout(() => window.initTrackingApp(), 200);
-            return;
-      }
-      startApp();
-};
-
-// Wait for Firebase to be available (handles browser blocking)
-function waitForFirebase(callback, maxAttempts = 150) {
-      if (window.firebaseReady && typeof firebase !== 'undefined' && firebase.app) {
-            log("✅ Firebase scripts loaded!");
-            callback();
-      } else if (typeof firebase !== 'undefined' && firebase.app) {
-            log("✅ Firebase scripts loaded!");
-            callback();
-      } else if (maxAttempts > 0) {
-            setTimeout(() => waitForFirebase(callback, maxAttempts - 1), 100);
+      // Update Map Elements
+      if (!state.markers.sender) {
+            const icon = L.divIcon({ className: 'custom-marker', html: '<div class="pin-wrapper"><div class="pin"></div><div class="pin-pulse"></div></div>', iconSize: [40, 40] });
+            state.markers.sender = L.marker(latLng, { icon }).addTo(state.map);
+            state.map.setView(latLng, 16); // Zoom on first update
       } else {
-            log("❌ Firebase scripts timeout after 15 seconds.");
-            showFirebaseError();
+            state.markers.sender.setLatLng(latLng);
       }
+
+      state.lines.path.setLatLngs(state.data.history);
+
+      // Refresh route if we know where the viewer is
+      if (state.data.viewerLoc) fetchRoute();
+      updateMapBounds();
 }
 
-function startApp() {
-      waitForFirebase(() => {
-            initializeTracking();
-      });
+// -- Viewer Interaction --
+function setupInteraction() {
+      state.elements['btn-share-loc'].onclick = () => {
+            state.elements['btn-share-loc'].innerText = "Locating...";
+            navigator.geolocation.watchPosition(
+                  pos => updateViewerLocation(pos.coords.latitude, pos.coords.longitude),
+                  err => alert("Could not access location"),
+                  { enableHighAccuracy: true }
+            );
+      };
+
+      state.elements['btn-google-maps'].onclick = () => {
+            const [dLat, dLng] = state.data.lastLoc;
+            const [sLat, sLng] = [state.data.viewerLoc.lat, state.data.viewerLoc.lng];
+            window.open(`https://www.google.com/maps/dir/?api=1&origin=${sLat},${sLng}&destination=${dLat},${dLng}&travelmode=driving`, '_blank');
+      };
 }
 
-// Start waiting immediately
-waitForFirebase(() => {
-      initializeTracking();
-});
+function updateViewerLocation(lat, lng) {
+      state.data.viewerLoc = { lat, lng };
 
-function showFirebaseError() {
-      const errorCard = document.getElementById('error-card');
-      const waitingCard = document.getElementById('waiting-card');
-      if (errorCard && waitingCard) {
-            waitingCard.style.display = 'none';
-            const errorText = errorCard.querySelector('.error-text');
-            if (errorText) {
-                  errorText.innerHTML = "Firebase blocked by browser.<br><br>" +
-                        "🔧 <strong>Solution:</strong><br>" +
-                        "1. Use <strong>Google Chrome</strong> or <strong>Safari</strong><br>" +
-                        "2. OR disable <strong>Brave Shields</strong> (orange lion icon)";
-            }
-            errorCard.style.display = 'block';
+      if (!state.markers.viewer) {
+            state.markers.viewer = L.marker([lat, lng], { icon: L.divIcon({ className: 'dot-marker', iconSize: [16, 16] }) }).addTo(state.map);
+      } else {
+            state.markers.viewer.setLatLng([lat, lng]);
       }
+
+      state.elements['btn-share-loc'].innerText = "Location Shared";
+      state.elements['btn-share-loc'].disabled = true;
+      state.elements['btn-google-maps'].disabled = false;
+
+      fetchRoute();
 }
 
-function initializeTracking() {
-      log("Initializing Firebase (compat)...");
+async function fetchRoute() {
+      if (!state.data.viewerLoc || !state.data.lastLoc) return;
 
-      // Initialize Firebase using compat SDK to avoid module loading issues
+      const start = `${state.data.viewerLoc.lng},${state.data.viewerLoc.lat}`;
+      const end = `${state.data.lastLoc[1]},${state.data.lastLoc[0]}`;
+
       try {
-            const app = firebase.apps.length === 0 ? firebase.initializeApp(firebaseConfig) : firebase.app();
-            const db = firebase.firestore(app);
-            log("Firebase initialized.");
+            const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${start};${end}?overview=full&geometries=geojson`);
+            const json = await res.json();
 
-            // UI Elements
-            const mapEl = document.getElementById('map');
-            const waitingCard = document.getElementById('waiting-card');
-            const errorCard = document.getElementById('error-card');
-            const endedCard = document.getElementById('ended-card');
-            const liveBadge = document.getElementById('live-badge');
-            const bottomInfo = document.getElementById('bottom-info');
-            const lastUpdatedEl = document.getElementById('last-updated');
-            const routeCard = document.getElementById('route-card');
-            const routeDistanceEl = document.getElementById('route-distance');
-            const routeDurationEl = document.getElementById('route-duration');
-            const routeStatusEl = document.getElementById('route-status');
-            const requestLocationBtn = document.getElementById('request-location');
-            const openGoogleNavBtn = document.getElementById('open-google-nav');
+            if (json.routes && json.routes.length) {
+                  const route = json.routes[0];
+                  const coords = route.geometry.coordinates.map(c => [c[1], c[0]]); // Swap to LatLng
 
-            // Map State
-            let map;
-            let marker;
-            let polyline;
-            let routeLine;
-            let pathHistory = [];
-            let isFirstUpdate = true;
-            let lastTimestamp = null;
-            let lastLatLng = null;
-
-            // Viewer State
-            let viewerLocation = null;
-            let viewerMarker = null;
-            let viewerWatchId = null;
-            let routingInProgress = false;
-
-            if (routeCard) {
-                  routeCard.style.display = 'flex';
-            }
-
-            if (requestLocationBtn) {
-                  requestLocationBtn.addEventListener('click', () => {
-                        requestViewerLocation(true);
-                  });
-            }
-
-            if (openGoogleNavBtn) {
-                  openGoogleNavBtn.addEventListener('click', () => {
-                        if (viewerLocation && lastLatLng) {
-                              const url = `https://www.google.com/maps/dir/?api=1&origin=${viewerLocation.lat},${viewerLocation.lng}&destination=${lastLatLng[0]},${lastLatLng[1]}&travelmode=driving`;
-                              window.open(url, '_blank');
-                        }
-                  });
-                  openGoogleNavBtn.disabled = true;
-            }
-
-            // Initialize Map (India Center)
-            function initMap() {
-                  log("Initializing Map...");
-                  map = L.map('map', {
-                        zoomControl: false,
-                        attributionControl: false
-                  }).setView([20.5937, 78.9629], 4);
-
-                  // Google Maps Tile Layer
-                  L.tileLayer('http://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
-                        maxZoom: 20,
-                        subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-                        attribution: '&copy; Google Maps'
-                  }).addTo(map);
-
-                  // Polyline
-                  polyline = L.polyline([], {
-                        color: '#007AFF',
-                        weight: 4,
-                        opacity: 0.7,
-                        lineJoin: 'round'
-                  }).addTo(map);
-                  log("Map initialized.");
-            }
-
-            initMap();
-
-            // Extract Session ID
-            const urlParams = new URLSearchParams(window.location.search);
-            const sessionId = urlParams.get('sessionId');
-
-            if (!sessionId) {
-                  log("❌ No sessionId found in URL");
-                  waitingCard.style.display = 'none';
-                  errorCard.querySelector('.error-text').textContent = "Missing Session ID";
-                  errorCard.style.display = 'block';
-            } else {
-                  log(`✅ Session ID: ${sessionId}`);
-                  log("Connecting to Firestore...");
-
-                  // Connect to Firestore
-                  const docRef = db.collection("liveLocations").doc(sessionId);
-
-                  docRef.onSnapshot((docSnap) => {
-                        log("📩 Snapshot received");
-
-                        // Safely check if document exists
-                        // Handles both Modular (function) and Compat (property) SDKs
-                        let exists = false;
-                        try {
-                              if (docSnap) {
-                                    if (typeof docSnap.exists === 'function') {
-                                          exists = docSnap.exists();
-                                    } else {
-                                          exists = !!docSnap.exists;
-                                    }
-                              }
-                        } catch (e) {
-                              log(`⚠️ Error checking existence: ${e.message}`);
-                              exists = false;
-                        }
-
-                        if (exists) {
-                              const data = docSnap.data();
-                              log(`Data: ${JSON.stringify(data)}`);
-
-                              // Check if sharing is active
-                              if (data.isActive === false) {
-                                    log("🛑 isActive is false");
-                                    handleTrackingEnded();
-                                    return;
-                              }
-
-                              const { latitude, longitude, timestamp } = data;
-
-                              if (latitude && longitude) {
-                                    log(`📍 Update: ${latitude}, ${longitude}`);
-                                    const latLng = [latitude, longitude];
-                                    lastLatLng = latLng;
-                                    lastTimestamp = timestamp;
-
-                                    // First Update Actions
-                                    if (isFirstUpdate) {
-                                          log("🚀 First update - Showing Map");
-                                          waitingCard.style.display = 'none';
-                                          mapEl.classList.add('visible');
-                                          liveBadge.style.display = 'flex';
-                                          bottomInfo.style.display = 'block';
-
-                                          map.setView(latLng, 17); // Zoom to 17
-                                          isFirstUpdate = false;
-                                    }
-
-                                    // Update Marker
-                                    if (!marker) {
-                                          const customIcon = L.divIcon({
-                                                className: 'custom-marker',
-                                                html: '<div class="marker-pin"></div><div class="marker-pulse"></div>',
-                                                iconSize: [40, 40],
-                                                iconAnchor: [20, 20]
-                                          });
-                                          marker = L.marker(latLng, { icon: customIcon }).addTo(map);
-                                    } else {
-                                          marker.setLatLng(latLng);
-                                    }
-
-                                    // Center / Fit Map
-                                    if (viewerLocation) {
-                                          fitMapToEntities();
-                                    } else {
-                                          map.panTo(latLng);
-                                    }
-
-                                    // Update History
-                                    pathHistory.push(latLng);
-                                    polyline.setLatLngs(pathHistory);
-
-                                    // Update Time
-                                    updateTimeAgo();
-
-                                    // Update Route if we know viewer
-                                    if (viewerLocation && !routingInProgress) {
-                                          updateRoute();
-                                    }
-                              }
-                        } else {
-                              log("⚠️ Document does not exist - Session ended or invalid");
-                              handleTrackingEnded();
-                        }
-                  }, (error) => {
-                        log(`❌ Firestore Error: ${error.message}`);
-                        waitingCard.style.display = 'none';
-                        errorCard.querySelector('.error-text').textContent = "Error: " + error.message;
-                        errorCard.style.display = 'block';
-                  });
-            }
-
-            function handleTrackingEnded() {
-                  if (!isFirstUpdate) {
-                        mapEl.classList.remove('visible');
-                        liveBadge.style.display = 'none';
-                        bottomInfo.style.display = 'none';
-                        endedCard.style.display = 'block';
+                  if (!state.lines.route) {
+                        state.lines.route = L.polyline(coords, { color: CONFIG.map.routeColor, dashArray: '10, 10', opacity: 0.7 }).addTo(state.map);
                   } else {
-                        waitingCard.style.display = 'none';
-                        endedCard.style.display = 'block';
-                  }
-            }
-
-            function updateTimeAgo() {
-                  if (!lastTimestamp) return;
-                  const diff = Math.floor((Date.now() - lastTimestamp) / 1000);
-                  if (diff < 5) lastUpdatedEl.textContent = "Last updated: Just now";
-                  else if (diff < 60) lastUpdatedEl.textContent = `Last updated: ${diff} sec ago`;
-                  else lastUpdatedEl.textContent = `Last updated: ${Math.floor(diff / 60)} min ago`;
-            }
-
-            setInterval(updateTimeAgo, 1000);
-
-            function requestViewerLocation(force = false) {
-                  if (!navigator.geolocation) {
-                        setRouteStatus("Geolocation not supported on this device.");
-                        return;
-                  }
-                  if (viewerWatchId !== null && !force) return;
-                  setRouteStatus("Locating you...");
-                  if (requestLocationBtn) {
-                        requestLocationBtn.disabled = true;
-                  }
-                  viewerWatchId = navigator.geolocation.watchPosition(handleViewerLocation, handleViewerLocationError, {
-                        enableHighAccuracy: true,
-                        maximumAge: 5000,
-                        timeout: 15000
-                  });
-            }
-
-            function handleViewerLocation(position) {
-                  const { latitude, longitude } = position.coords;
-                  viewerLocation = { lat: latitude, lng: longitude };
-
-                  if (!viewerMarker) {
-                        const viewerIcon = L.divIcon({
-                              className: 'viewer-marker',
-                              iconSize: [16, 16],
-                              iconAnchor: [8, 8]
-                        });
-                        viewerMarker = L.marker([latitude, longitude], { icon: viewerIcon }).addTo(map);
-                        // viewerMarker.bindTooltip("You", { permanent: true, direction: 'bottom', offset: [0, 12] });
-                  } else {
-                        viewerMarker.setLatLng([latitude, longitude]);
+                        state.lines.route.setLatLngs(coords);
                   }
 
-                  setRouteStatus("Route ready");
-                  if (requestLocationBtn) {
-                        requestLocationBtn.textContent = "Location shared";
-                        requestLocationBtn.disabled = true;
-                  }
-
-                  if (lastLatLng) {
-                        if (openGoogleNavBtn) openGoogleNavBtn.disabled = false;
-                        updateRoute();
-                  }
-
-                  fitMapToEntities();
+                  state.elements['metric-dist'].innerText = (route.distance / 1000).toFixed(1) + " km";
+                  state.elements['metric-time'].innerText = Math.round(route.duration / 60) + " min";
             }
+      } catch (e) { console.error("Route Error", e); }
+}
 
-            function handleViewerLocationError(error) {
-                  log(`⚠️ Viewer location error: ${error.message}`);
-                  setRouteStatus("Could not access your location.");
-                  if (requestLocationBtn) {
-                        requestLocationBtn.disabled = false;
-                        requestLocationBtn.textContent = "Share location";
-                  }
-            }
-
-            function fitMapToEntities() {
-                  const bounds = L.latLngBounds([]);
-                  if (marker && marker.getLatLng) bounds.extend(marker.getLatLng());
-                  if (viewerMarker && viewerMarker.getLatLng) bounds.extend(viewerMarker.getLatLng());
-
-                  if (bounds.isValid() && bounds.getNorth() !== bounds.getSouth()) {
-                        map.fitBounds(bounds, { padding: [80, 80] });
-                  } else if (marker) {
-                        map.panTo(marker.getLatLng());
-                  }
-            }
-
-            async function updateRoute() {
-                  if (!viewerLocation || !lastLatLng) return;
-                  routingInProgress = true;
-                  setRouteStatus("Fetching best route…");
-
-                  try {
-                        const url = `https://router.project-osrm.org/route/v1/driving/${viewerLocation.lng},${viewerLocation.lat};${lastLatLng[1]},${lastLatLng[0]}?overview=full&geometries=geojson`;
-                        const response = await fetch(url);
-                        if (!response.ok) throw new Error("Route service unavailable");
-                        const data = await response.json();
-                        if (!data.routes || !data.routes.length) throw new Error("No route found");
-                        const route = data.routes[0];
-                        const coords = route.geometry.coordinates.map(([lon, lat]) => [lat, lon]);
-
-                        if (!routeLine) {
-                              routeLine = L.polyline(coords, {
-                                    color: '#4285F4', // Google Maps Blue
-                                    weight: 6,
-                                    opacity: 0.8,
-                                    dashArray: '10, 15', // Dashed Line
-                                    lineJoin: 'round',
-                                    lineCap: 'round'
-                              }).addTo(map);
-                        } else {
-                              routeLine.setLatLngs(coords);
-                        }
-
-                        // Calculate Midpoint for ETA Label
-                        const midIndex = Math.floor(coords.length / 2);
-                        const midPoint = coords[midIndex];
-
-                        const durationText = formatDuration(route.duration);
-                        const labelHtml = `<div>🚘 ${durationText}</div>`;
-
-                        if (!window.etaLabel) {
-                              const labelIcon = L.divIcon({
-                                    className: 'route-label',
-                                    html: labelHtml,
-                                    iconSize: [null, null], // Auto size
-                                    iconAnchor: [40, 40] // Approximate center
-                              });
-                              window.etaLabel = L.marker(midPoint, { icon: labelIcon, zIndexOffset: 1000 }).addTo(map);
-                        } else {
-                              window.etaLabel.setLatLng(midPoint);
-                              // Update content if needed (requires re-creating icon or DOM manipulation, simpler to just replace icon)
-                              const labelIcon = L.divIcon({
-                                    className: 'route-label',
-                                    html: labelHtml,
-                                    iconSize: [null, null],
-                                    iconAnchor: [40, 40]
-                              });
-                              window.etaLabel.setIcon(labelIcon);
-                        }
-
-                        setRouteDistance(formatDistance(route.distance));
-                        setRouteDuration(formatDuration(route.duration));
-                        setRouteStatus("Route updated");
-                        if (openGoogleNavBtn) openGoogleNavBtn.disabled = false;
-                        fitMapToEntities();
-                  } catch (error) {
-                        setRouteStatus("Unable to calculate route.");
-                        if (openGoogleNavBtn) openGoogleNavBtn.disabled = true;
-                        log(`⚠️ Routing error: ${error.message}`);
-                  } finally {
-                        routingInProgress = false;
-                  }
-            }
-
-            function formatDistance(meters) {
-                  if (meters < 1000) return `${meters.toFixed(0)} m`;
-                  return `${(meters / 1000).toFixed(1)} km`;
-            }
-
-            function formatDuration(seconds) {
-                  const minutes = Math.round(seconds / 60);
-                  if (minutes < 60) return `${minutes} min`;
-                  const hours = Math.floor(minutes / 60);
-                  const rem = minutes % 60;
-                  return `${hours}h ${rem}m`;
-            }
-
-            function setRouteStatus(text) {
-                  if (routeStatusEl) routeStatusEl.textContent = text;
-            }
-
-            function setRouteDistance(text) {
-                  if (routeDistanceEl) routeDistanceEl.textContent = text;
-            }
-
-            function setRouteDuration(text) {
-                  if (routeDurationEl) routeDurationEl.textContent = text;
-            }
-
-            // Try requesting viewer location on load (will fail silently if blocked)
-            setTimeout(() => requestViewerLocation(false), 500);
-
-            window.addEventListener('beforeunload', () => {
-                  if (viewerWatchId !== null && navigator.geolocation) {
-                        navigator.geolocation.clearWatch(viewerWatchId);
-                  }
-            });
-
-      } catch (e) {
-            log(`❌ Critical Error: ${e.message}`);
+function updateMapBounds() {
+      const featureGroup = L.featureGroup([state.markers.sender, state.markers.viewer].filter(Boolean));
+      if (featureGroup.getLayers().length > 1) {
+            state.map.fitBounds(featureGroup.getBounds(), { padding: [50, 50] });
+      } else if (state.markers.sender && !state.data.viewerLoc) {
+            state.map.panTo(state.markers.sender.getLatLng());
       }
+}
+
+// -- UI Renders --
+function renderActive() {
+      toggleDisplay('status-card', false);
+      toggleDisplay('live-badge', true);
+      toggleDisplay('route-panel', true);
+}
+
+function renderError(msg) {
+      toggleDisplay('spinner', false);
+      const card = state.elements['status-card'];
+      card.style.display = 'block';
+      state.elements['status-icon'].innerText = "⚠️";
+      state.elements['status-icon'].style.display = 'block';
+      state.elements['status-text'].innerText = msg;
+}
+
+function renderEnded() {
+      toggleDisplay('live-badge', false);
+      toggleDisplay('route-panel', false);
+      toggleDisplay('spinner', false);
+
+      const card = state.elements['status-card'];
+      card.style.display = 'block';
+      state.elements['status-icon'].innerText = "🛑";
+      state.elements['status-icon'].style.display = 'block';
+      state.elements['status-text'].innerText = "Tracking Ended";
+      state.elements['status-subtext'].innerText = "The sender has stopped sharing location.";
+      state.elements['status-subtext'].style.display = 'block';
+}
+
+function toggleDisplay(id, show) {
+      if (state.elements[id]) state.elements[id].style.display = show ? (id === 'live-badge' ? 'flex' : 'block') : 'none';
 }

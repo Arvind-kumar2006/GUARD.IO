@@ -1,330 +1,126 @@
+:root {
+    --primary: #2563eb;
+    --primary-active: #1d4ed8;
+    --danger: #ef4444;
+    --text-main: #1f2937;
+    --text-muted: #6b7280;
+    --bg-light: #f3f4f6;
+    --white: #ffffff;
+    --shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
 body {
     margin: 0;
-    padding: 0;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background-color: #f5f5f5;
+    font-family: 'Inter', system-ui, sans-serif;
     overflow: hidden;
-    -webkit-font-smoothing: antialiased;
 }
 
 #map {
     height: 100vh;
     width: 100%;
     z-index: 1;
-    opacity: 0;
-    transition: opacity 0.5s ease;
 }
 
-#map.visible {
-    opacity: 1;
-}
-
-/* Centered Cards (Waiting/Error) */
-#waiting-card,
-#error-card,
-#ended-card {
-    position: absolute;
-    top: 40%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background: white;
-    padding: 32px;
-    border-radius: 24px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-    text-align: center;
-    z-index: 1000;
-    max-width: 85%;
-    width: 320px;
-}
-
-.waiting-text,
-.error-text,
-.ended-text {
-    font-size: 18px;
-    font-weight: 600;
-    color: #1f2937;
-    margin-top: 16px;
-    line-height: 1.4;
-}
-
-.ended-subtext {
-    font-size: 14px;
-    color: #6b7280;
-    margin-top: 8px;
-}
-
-.error-icon,
-.ended-icon {
-    font-size: 48px;
-    margin-bottom: 8px;
-}
-
-/* Spinner */
-.spinner {
-    width: 48px;
-    height: 48px;
-    border: 4px solid #f3f4f6;
-    border-top: 4px solid #3b82f6;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin: 0 auto;
-}
-
-@keyframes spin {
-    0% {
-        transform: rotate(0deg);
-    }
-
-    100% {
-        transform: rotate(360deg);
-    }
-}
-
-/* Live Badge */
-#live-badge {
-    position: absolute;
-    top: 16px;
-    left: 16px;
-    background: rgba(255, 255, 255, 0.95);
-    padding: 8px 12px;
-    border-radius: 999px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    z-index: 1000;
-    font-weight: 600;
-    font-size: 13px;
-    color: #1f2937;
-    backdrop-filter: blur(4px);
-}
-
-.live-dot {
-    width: 8px;
-    height: 8px;
-    background-color: #ef4444;
-    border-radius: 50%;
-    animation: pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-    0% {
-        opacity: 1;
-        transform: scale(1);
-    }
-
-    50% {
-        opacity: 0.5;
-        transform: scale(0.9);
-    }
-
-    100% {
-        opacity: 1;
-        transform: scale(1);
-    }
-}
-
-/* Bottom Sheet/* Route Card - Hidden for V2 (On-map label) */
-#route-card {
-    display: none !important;
-}
-
-/* On-Map ETA Label */
-.route-label {
-    background: white;
-    padding: 6px 12px;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-    font-size: 13px;
-    font-weight: 700;
-    color: #111;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    white-space: nowrap;
-    transform: translate(-50%, -50%);
-}
-
-.route-label::after {
-    content: '';
-    position: absolute;
-    bottom: -6px;
-    left: 50%;
-    transform: translateX(-50%);
-    border-width: 6px 6px 0;
-    border-style: solid;
-    border-color: white transparent transparent transparent;
-}
-
-/* Handle bar for bottom sheet look */
-#route-card::before {
-    content: '';
-    position: absolute;
-    top: 8px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 40px;
-    height: 4px;
-    background-color: #e5e7eb;
-    border-radius: 2px;
-}
-
-.route-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.route-info {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.route-title {
-    font-size: 20px;
-    font-weight: 700;
-    color: #111827;
-}
-
-.route-status {
-    font-size: 14px;
-    color: #6b7280;
-}
-
-.route-metrics {
-    display: flex;
-    gap: 16px;
-    padding: 16px 0;
-    border-top: 1px solid #f3f4f6;
-    border-bottom: 1px solid #f3f4f6;
-}
-
-.metric {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.metric-label {
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: #9ca3af;
-    font-weight: 600;
-}
-
-.metric-value {
-    font-size: 24px;
-    font-weight: 700;
-    color: #111827;
-    font-feature-settings: "tnum";
-}
-
-.primary-button {
-    width: 100%;
-    border: none;
-    border-radius: 16px;
-    padding: 16px;
-    font-size: 16px;
-    font-weight: 600;
-    background: #2563eb;
-    color: white;
-    cursor: pointer;
-    transition: background 0.2s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-}
-
-.primary-button:active {
-    background: #1d4ed8;
-    transform: scale(0.98);
-}
-
-.primary-button:disabled {
-    background: #e5e7eb;
-    color: #9ca3af;
-    cursor: not-allowed;
-    transform: none;
-}
-
-.ghost-button {
-    border: none;
-    background: #f3f4f6;
-    border-radius: 999px;
-    padding: 8px 16px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    color: #374151;
-    transition: background 0.2s;
-}
-
-.ghost-button:hover {
-    background: #e5e7eb;
-}
-
-/* Desktop override */
-@media (min-width: 768px) {
-    #route-card {
-        bottom: 24px;
-        left: 24px;
-        width: 380px;
-        border-radius: 24px;
-        padding-bottom: 24px;
-    }
-}
-
-/* Custom Marker (Red Pin for Destination) */
-.custom-marker {
-    position: relative;
-}
-
-.marker-pin {
-    width: 24px;
-    height: 24px;
-    background: #EA4335;
-    /* Google Red */
-    border: 3px solid white;
-    border-radius: 50%;
-    box-shadow: 0 4px 12px rgba(234, 67, 53, 0.4);
-}
-
-.marker-pulse {
+/* Floating Card (Status) */
+.card {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 60px;
-    height: 60px;
-    background: rgba(234, 67, 53, 0.2);
-    border-radius: 50%;
-    animation: pulse-red 2s infinite;
-    z-index: -1;
+    background: var(--white);
+    padding: 32px;
+    border-radius: 24px;
+    box-shadow: var(--shadow);
+    text-align: center;
+    z-index: 1000;
+    min-width: 280px;
 }
 
-@keyframes pulse-red {
-    0% {
-        transform: translate(-50%, -50%) scale(0.5);
-        opacity: 1;
-    }
+.text { font-size: 18px; font-weight: 600; color: var(--text-main); margin-top: 16px; }
+.subtext { font-size: 14px; color: var(--text-muted); margin-top: 8px; }
+.icon { font-size: 48px; }
 
-    100% {
-        transform: translate(-50%, -50%) scale(1.5);
-        opacity: 0;
-    }
+/* Spinner */
+.spinner {
+    width: 40px; height: 40px; margin: 0 auto;
+    border: 4px solid var(--bg-light);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Live Badge */
+.badge {
+    position: absolute; top: 16px; left: 16px;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 8px 12px;
+    border-radius: 100px;
+    box-shadow: var(--shadow);
+    display: flex; align-items: center; gap: 8px;
+    z-index: 1000;
+    font-weight: 600; font-size: 13px; color: var(--text-main);
+    backdrop-filter: blur(4px);
+}
+.live-dot {
+    width: 8px; height: 8px; background: var(--danger);
+    border-radius: 50%; animation: pulse 1.5s infinite;
+}
+@keyframes pulse { 50% { opacity: 0.5; transform: scale(0.9); } }
+
+/* Bottom Panel (Route) */
+.panel {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: var(--white);
+    padding: 24px;
+    border-radius: 24px 24px 0 0;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
+    z-index: 1000;
+    display: flex; flex-direction: column; gap: 16px;
+}
+@media (min-width: 768px) {
+    .panel { bottom: 24px; left: 24px; right: auto; width: 360px; border-radius: 24px; }
 }
 
-/* Viewer Marker (Blue Dot for You) */
-.viewer-marker {
-    width: 16px;
-    height: 16px;
-    background: #4285F4;
-    /* Google Blue */
-    border: 3px solid white;
-    border-radius: 50%;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+.panel-header { display: flex; justify-content: space-between; align-items: center; }
+.panel-header h3 { margin: 0; font-size: 18px; color: var(--text-main); }
+
+.metrics { display: flex; gap: 16px; padding: 16px 0; border-block: 1px solid var(--bg-light); }
+.metric { flex: 1; display: flex; flex-direction: column; }
+.metric label { font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
+.metric span { font-size: 24px; font-weight: 700; color: var(--text-main); }
+
+/* Buttons */
+button { cursor: pointer; border: none; font-family: inherit; transition: 0.2s; }
+.btn-primary {
+    background: var(--primary); color: var(--white);
+    padding: 14px; border-radius: 16px; font-weight: 600; width: 100%; font-size: 16px;
+}
+.btn-primary:active { transform: scale(0.98); background: var(--primary-active); }
+.btn-primary:disabled { background: var(--bg-light); color: var(--text-muted); cursor: not-allowed; }
+
+.btn-ghost {
+    background: var(--bg-light); color: var(--text-main);
+    padding: 8px 16px; border-radius: 100px; font-weight: 600; font-size: 13px;
+}
+.btn-ghost:hover { background: #e5e7eb; }
+
+/* Custom Markers */
+.pin-wrapper { position: relative; }
+.pin {
+    width: 24px; height: 24px; background: #EA4335;
+    border: 3px solid white; border-radius: 50%;
+    box-shadow: 0 4px 12px rgba(234, 67, 53, 0.4);
+}
+.pin-pulse {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 60px; height: 60px; background: rgba(234, 67, 53, 0.2);
+    border-radius: 50%; animation: pulse-big 2s infinite; z-index: -1;
+}
+@keyframes pulse-big { 0% { opacity: 1; transform: translate(-50%, -50%) scale(0.5); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.5); } }
+
+.dot-marker {
+    width: 16px; height: 16px; background: #4285F4;
+    border: 3px solid white; border-radius: 50%;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
